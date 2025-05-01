@@ -174,6 +174,6 @@ def render_installed_base():
             render_usage_trends(filtered_data)
 
             # Provide an option to download filtered data as Excel
-            download_excel(filtered_data)
+            to_excel(filtered_data)
 
             st.success("Installed Base Analysis complete!")
