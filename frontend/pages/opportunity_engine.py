@@ -1,80 +1,98 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
+import numpy as np
+import io
 
-st.set_page_config(page_title="Opportunity Engine", layout="wide")
-st.title("💰 Opportunity Engine - Strategic Growth Insights")
 
-st.markdown("""
-This module uses your installed base data, customer profiles, product intelligence,
-and economic indicators to generate statistically scored growth opportunities.
-""")
+def render_opportunities():
+    st.title("💰 Opportunity Engine")
+    st.markdown("""
+    Identify new revenue opportunities by correlating internal Installed Base data with macroeconomic indicators and industry trends.
+    This model applies a scoring framework inspired by strategic consulting firms.
+    """)
 
-# 1. Static Installed Base Data
-installed_base = pd.DataFrame({
-    'Customer': ['Alpha Corp', 'Beta Inc', 'Gamma Ltd', 'Delta Co'],
-    'Country': ['USA', 'Germany', 'India', 'Brazil'],
-    'Product': ['X100', 'X200', 'X100', 'X300'],
-    'Units': [120, 85, 150, 60],
-    'Average Usage Hours': [10500, 8700, 9400, 11000],
-    'Sales History': [2, 1, 3, 2],
-    'Lifecycle Stage': ['Growth', 'Mature', 'Growth', 'Decline']
-})
+    # Simulated Installed Base Data
+    installed_base = pd.DataFrame({
+        "Customer": ["Acme Corp", "Beta Inc", "Nova Systems", "Zeta Ltd"],
+        "Country": ["USA", "Germany", "India", "Brazil"],
+        "Product": ["Compressor", "Valve", "Compressor", "Pump"],
+        "Units Installed": [100, 50, 80, 40],
+        "Avg Usage Hours": [12000, 8000, 14000, 9000],
+        "Last Purchase Year": [2020, 2019, 2021, 2020]
+    })
 
-# 2. Static GDP & Market Index Proxy Data
-economic_indicators = pd.DataFrame({
-    'Country': ['USA', 'Germany', 'India', 'Brazil'],
-    'GDP Growth (%)': [2.5, 1.8, 6.3, 2.1],
-    'Market Momentum Index': [0.7, 0.6, 0.9, 0.5]
-})
+    # Simulated Product Profitability
+    product_profit = pd.DataFrame({
+        "Product": ["Compressor", "Valve", "Pump"],
+        "Gross Margin %": [42, 35, 38],
+        "Replacement Cycle (yrs)": [5, 7, 6]
+    })
 
-# 3. Join data sets
-merged = installed_base.merge(economic_indicators, on='Country', how='left')
+    # Simulated Country Indicators
+    country_indicators = pd.DataFrame({
+        "Country": ["USA", "Germany", "India", "Brazil"],
+        "GDP Growth %": [2.1, 1.2, 6.3, 2.8],
+        "Inflation %": [3.0, 2.5, 5.5, 4.2],
+        "Market Index Growth %": [5.2, 3.1, 8.4, 4.7],
+        "Competitive Intensity": ["High", "Medium", "Low", "Medium"]
+    })
 
-# 4. Scoring System: 0-1 scale weighted by strategic importance
-def score_opportunity(row):
-    lifecycle_score = {'Growth': 1.0, 'Mature': 0.5, 'Decline': 0.2}.get(row['Lifecycle Stage'], 0.3)
-    normalized_units = row['Units'] / 150  # Assume 150 is max
-    normalized_usage = row['Average Usage Hours'] / 12000  # Assume 12k is upper threshold
-    normalized_gdp = row['GDP Growth (%)'] / 10  # Normalize GDP
-    momentum = row['Market Momentum Index']
-    sales_boost = 0.1 * row['Sales History']
+    # Merge data for scoring
+    df = installed_base.merge(product_profit, on="Product", how="left")
+    df = df.merge(country_indicators, on="Country", how="left")
 
-    score = (
-        0.2 * normalized_units +
-        0.2 * normalized_usage +
-        0.25 * normalized_gdp +
-        0.15 * momentum +
-        0.1 * lifecycle_score +
-        0.1 * sales_boost
-    )
-    return round(score, 3)
+    # Scoring logic
+    def score_opportunity(row):
+        score = 0
+        score += min(row["Units Installed"] / 20, 5)
+        score += (2025 - row["Last Purchase Year"]) * 0.5
+        score += row["Gross Margin %"] / 10
+        score += row["GDP Growth %"] / 2
+        score += row["Market Index Growth %"] / 2
+        if row["Competitive Intensity"] == "High":
+            score -= 2
+        elif row["Competitive Intensity"] == "Medium":
+            score -= 1
+        return round(score, 2)
 
-merged['Opportunity Score'] = merged.apply(score_opportunity, axis=1)
+    df["Opportunity Score"] = df.apply(score_opportunity, axis=1)
+    df = df.sort_values(by="Opportunity Score", ascending=False)
 
-# 5. Display Table
-st.subheader("📋 Opportunity Scorecard")
-st.dataframe(merged[['Customer', 'Country', 'Product', 'Opportunity Score']], use_container_width=True)
+    # Filters
+    with st.sidebar:
+        st.header("🔍 Filters")
+        selected_country = st.multiselect("Select Country", df["Country"].unique(), default=df["Country"].unique())
+        selected_product = st.multiselect("Select Product", df["Product"].unique(), default=df["Product"].unique())
 
-# 6. Visualizations
-col1, col2 = st.columns(2)
+    filtered_df = df[(df["Country"].isin(selected_country)) & (df["Product"].isin(selected_product))]
 
-with col1:
-    st.markdown("#### 📈 Scores by Country")
-    fig1 = px.bar(merged, x='Country', y='Opportunity Score', color='Opportunity Score',
-                 color_continuous_scale='Viridis', title="Opportunity Scores Across Countries")
-    st.plotly_chart(fig1, use_container_width=True)
+    st.subheader("🔍 Opportunity Insights")
+    st.dataframe(filtered_df[[
+        "Customer", "Country", "Product", "Units Installed", 
+        "Avg Usage Hours", "Last Purchase Year", 
+        "Gross Margin %", "GDP Growth %", "Market Index Growth %",
+        "Competitive Intensity", "Opportunity Score"
+    ]], use_container_width=True)
 
-with col2:
-    st.markdown("#### 🔍 Opportunity by Product")
-    fig2 = px.sunburst(merged, path=['Country', 'Product', 'Customer'], values='Opportunity Score',
-                       title="Opportunity Breakdown by Product")
+    st.subheader("📊 Opportunity Score by Customer")
+    fig = px.bar(filtered_df, x="Customer", y="Opportunity Score", color="Product", text="Country")
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader("🌎 Opportunity Score by Country")
+    fig2 = px.scatter_geo(filtered_df, locations="Country", locationmode="country names",
+                          size="Opportunity Score", color="Product",
+                          projection="natural earth", title="Geographic Opportunity Heatmap")
     st.plotly_chart(fig2, use_container_width=True)
 
-# 7. Top Recommendations
-st.subheader("🚀 High-Scoring Growth Opportunities")
-top_opportunities = merged.sort_values("Opportunity Score", ascending=False).head(3)
-st.table(top_opportunities[['Customer', 'Country', 'Product', 'Opportunity Score']])
+    st.subheader("📈 Correlation Matrix")
+    numeric_df = filtered_df.select_dtypes(include=["float64", "int"])
+    corr = numeric_df.corr()
+    fig3 = px.imshow(corr, text_auto=True, title="Correlation Between Key Drivers")
+    st.plotly_chart(fig3, use_container_width=True)
 
-st.success("Analysis complete. Insights ready for business decision-making.")
+    # Download button
+    csv = filtered_df.to_csv(index=False)
+    st.download_button("📥 Download Opportunities as CSV", csv, "opportunity_insights.csv", "text/csv")
+
+    st.success("Opportunity analysis completed with embedded datasets and strategic scoring.")
