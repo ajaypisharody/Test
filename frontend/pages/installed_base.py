@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import io
 
-# Helper function to display a download button
+# --- Helper Functions ---
 def download_csv(dataframe, filename="installed_base_data.csv"):
     csv = dataframe.to_csv(index=False)
     st.download_button(
@@ -13,167 +13,112 @@ def download_csv(dataframe, filename="installed_base_data.csv"):
         mime="text/csv",
     )
 
-# Helper function for maintenance prediction
 def predict_maintenance(data):
-    threshold = 10000  # Maintenance threshold for usage hours
+    threshold = 10000
     data['Needs Maintenance'] = data['Usage Hours'] > threshold
     return data
 
-# Helper function to convert data to Excel
 def to_excel(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df.to_excel(writer, index=False)
     return output.getvalue()
 
-# Function to display location heatmap (requires lat/lng data)
-def location_heatmap(data):
-    # Group the data by location and count occurrences
-    location_counts = data['Location'].value_counts().reset_index()
-    location_counts.columns = ['Location', 'Count']
-
-    # Generate a heatmap
-    fig = px.density_mapbox(
-        location_counts, 
-        lat="Latitude", lon="Longitude", 
-        z="Count", radius=10, 
-        center=dict(lat=37.77, lon=-122.42), 
-        zoom=3,
-        mapbox_style="carto-positron"
-    )
-    return fig
-
-# Function to render historical trends (usage over time)
 def render_usage_trends(data):
     if "ds" in data.columns and "Usage Hours" in data.columns:
         fig = px.line(data, x="ds", y="Usage Hours", title="Usage Hours Over Time")
         st.plotly_chart(fig)
     else:
-        st.warning("No time-series data (ds) for usage hours available.")
+        st.warning("No time-series column (`ds`) found for usage trends.")
 
+# --- Main Render Function ---
 def render_installed_base():
-    # Back to Home button
+    st.title("📦 Installed Base Intelligence")
+
+    # Navigation
     if st.button("🔙 Back to Home"):
         st.session_state.current_page = "Home"
         st.experimental_rerun()
 
-    # Title and Instructions
-    st.title("📦 Installed Base Intelligence")
-    st.markdown(
-        """
-        Gain insights into your equipment base globally. Upload your data, analyze it interactively, and make data-driven decisions.
-        Use the tools below to explore usage, service history, and other key metrics.
-        """
-    )
+    # Ensure data was uploaded
+    if "installed_base_data" not in st.session_state:
+        st.error("❌ No data uploaded. Please return to Home and upload Installed Base data.")
+        return
 
-    # File Upload with Tooltip
-    st.subheader("Upload Equipment Data")
-    st.markdown(
-        """
-        <style>
-        .tooltip {
-            position: relative;
-        }
-        .tooltip:hover:after {
-            content: 'Please upload a CSV file containing equipment details like ID, location, and usage hours.';
-            position: absolute;
-            bottom: 30px;
-            left: 10px;
-            background-color: #333;
-            color: white;
-            padding: 5px;
-            border-radius: 5px;
-            font-size: 12px;
-        }
-        </style>
-        """, unsafe_allow_html=True
-    )
-    uploaded_file = st.file_uploader("Upload your equipment data (CSV)", type=["csv"])
+    data = st.session_state.installed_base_data
 
-    if uploaded_file is not None:
-        # Read data and show basic details
-        data = pd.read_csv(uploaded_file)
-        st.write("### Raw Data Preview")
-        st.dataframe(data.head(), use_container_width=True)
+    st.markdown("""
+        Gain insights into your equipment base. This module helps visualize, filter, and analyze 
+        your installed base with detailed metrics and interactive visuals.
+    """)
 
-        # Check the structure of the file
-        required_columns = ["Equipment ID", "Location", "Usage Hours", "Service History"]
-        missing_columns = [col for col in required_columns if col not in data.columns]
+    st.subheader("Raw Data Preview")
+    st.dataframe(data.head(), use_container_width=True)
 
-        if missing_columns:
-            st.error(f"Missing required columns: {', '.join(missing_columns)}")
-        else:
-            st.success("Data successfully loaded!")
-            
-            # Predict Maintenance Needs
-            data = predict_maintenance(data)
+    # Validate required columns
+    required_cols = ["Equipment ID", "Location", "Usage Hours", "Service History"]
+    missing = [col for col in required_cols if col not in data.columns]
+    if missing:
+        st.error(f"❌ Missing required columns: {', '.join(missing)}")
+        return
 
-            # Maintenance Alert Dashboard
-            st.write("### Maintenance Opportunity Dashboard")
-            maintenance_data = data[data['Needs Maintenance']]
-            if maintenance_data.empty:
-                st.info("No equipment requires maintenance at this time.")
-            else:
-                st.warning(f"{maintenance_data.shape[0]} pieces of equipment require maintenance.")
-                st.dataframe(maintenance_data[['Equipment ID', 'Usage Hours', 'Location', 'Service History', 'Needs Maintenance']], use_container_width=True)
+    # Predict Maintenance
+    data = predict_maintenance(data)
 
-            # Visualizations
+    # Maintenance Alerts
+    st.subheader("🔧 Maintenance Dashboard")
+    maintenance_data = data[data['Needs Maintenance']]
+    if maintenance_data.empty:
+        st.success("✅ All equipment is within usage threshold.")
+    else:
+        st.warning(f"⚠️ {maintenance_data.shape[0]} units require maintenance.")
+        st.dataframe(maintenance_data[["Equipment ID", "Usage Hours", "Location", "Service History"]])
 
-            # Equipment Distribution by Location
-            st.write("### Equipment Distribution by Location")
-            location_counts = data['Location'].value_counts()
-            fig = px.bar(location_counts, x=location_counts.index, y=location_counts.values, labels={'x': 'Location', 'y': 'Count'})
-            st.plotly_chart(fig, use_container_width=True)
+    # Location Distribution
+    st.subheader("📍 Equipment Distribution by Location")
+    location_counts = data["Location"].value_counts()
+    fig1 = px.bar(location_counts, x=location_counts.index, y=location_counts.values,
+                  labels={'x': 'Location', 'y': 'Count'})
+    st.plotly_chart(fig1, use_container_width=True)
 
-            # Usage Hours Histogram
-            st.write("### Distribution of Usage Hours")
-            fig2 = px.histogram(data, x="Usage Hours", nbins=20, title="Usage Hours Distribution")
-            st.plotly_chart(fig2, use_container_width=True)
+    # Usage Hours Histogram
+    st.subheader("📊 Usage Hours Distribution")
+    fig2 = px.histogram(data, x="Usage Hours", nbins=20)
+    st.plotly_chart(fig2, use_container_width=True)
 
-            # Service History Breakdown
-            st.write("### Service History Breakdown")
-            service_counts = data['Service History'].value_counts()
-            fig3 = px.pie(service_counts, names=service_counts.index, values=service_counts.values, title="Service History Distribution")
-            st.plotly_chart(fig3, use_container_width=True)
+    # Service History Breakdown
+    st.subheader("🛠️ Service History Breakdown")
+    service_counts = data["Service History"].value_counts()
+    fig3 = px.pie(service_counts, names=service_counts.index, values=service_counts.values)
+    st.plotly_chart(fig3, use_container_width=True)
 
-            # Filter Data by Location and Service History
-            st.write("### Filter Data")
-            location_filter = st.multiselect(
-                "Select Locations", options=data['Location'].unique(), default=data['Location'].unique())
-            service_filter = st.multiselect(
-                "Select Service History Types", options=data['Service History'].unique(), default=data['Service History'].unique())
+    # Filters
+    st.subheader("🔍 Filter Data")
+    location_filter = st.multiselect("Location", options=data["Location"].unique(), default=data["Location"].unique())
+    service_filter = st.multiselect("Service History", options=data["Service History"].unique(), default=data["Service History"].unique())
+    filtered = data[data["Location"].isin(location_filter) & data["Service History"].isin(service_filter)]
 
-            # Filter the data based on the user input
-            filtered_data = data[
-                data['Location'].isin(location_filter) & data['Service History'].isin(service_filter)
-            ]
-            st.write(f"Filtered Data ({filtered_data.shape[0]} records)")
-            st.dataframe(filtered_data, use_container_width=True)
+    st.write(f"Showing {filtered.shape[0]} records")
+    st.dataframe(filtered, use_container_width=True)
 
-            # Provide an option to download filtered data
-            download_csv(filtered_data)
+    # Download Button
+    download_csv(filtered)
 
-            # Summary Metrics for Filtered Data
-            st.write("### Summary Metrics for Filtered Data")
-            st.write(f"Total Units: {filtered_data.shape[0]}")
-            st.write(f"Avg Usage Hours: {filtered_data['Usage Hours'].mean():,.2f}")
-            st.write(f"Top Location: {filtered_data['Location'].value_counts().idxmax()}")
-            st.write(f"Most Common Service History: {filtered_data['Service History'].value_counts().idxmax()}")
-            
-            # Optionally show a detailed breakdown
-            st.write("### Detailed Breakdown of Equipment")
-            st.dataframe(filtered_data, use_container_width=True)
+    # Summary Metrics
+    st.subheader("📈 Summary Metrics")
+    st.metric("Total Units", f"{filtered.shape[0]}")
+    st.metric("Avg Usage Hours", f"{filtered['Usage Hours'].mean():,.2f}")
+    st.metric("Top Location", filtered['Location'].value_counts().idxmax())
+    st.metric("Most Common Service History", filtered['Service History'].value_counts().idxmax())
 
-            # Visualize a more detailed chart of usage by equipment
-            st.write("### Equipment Usage Breakdown")
-            usage_by_equipment = filtered_data.groupby("Equipment ID")["Usage Hours"].sum().reset_index()
-            fig4 = px.bar(usage_by_equipment, x="Equipment ID", y="Usage Hours", title="Total Usage by Equipment")
-            st.plotly_chart(fig4, use_container_width=True)
-            
-            # Render Historical Usage Trends (if data has time-series)
-            render_usage_trends(filtered_data)
+    # Equipment-Level Breakdown
+    st.subheader("🔬 Usage by Equipment")
+    usage_by_equipment = filtered.groupby("Equipment ID")["Usage Hours"].sum().reset_index()
+    fig4 = px.bar(usage_by_equipment, x="Equipment ID", y="Usage Hours", title="Usage by Equipment")
+    st.plotly_chart(fig4, use_container_width=True)
 
-            # Provide an option to download filtered data as Excel
-            to_excel(filtered_data)
+    # Time Series Chart (optional)
+    st.subheader("📆 Historical Usage Trends")
+    render_usage_trends(filtered)
 
-            st.success("Installed Base Analysis complete!")
+    st.success("✅ Installed Base Module Loaded.")
