@@ -32,7 +32,21 @@ st.markdown("""
             cursor: pointer;
             transition: 0.3s ease-in-out;
         }
+        .top-right-button {
+            position: fixed;
+            top: 10px;
+            right: 30px;
+            z-index: 1000;
+        }
     </style>
+
+    <div class="top-right-button">
+        <form action="">
+            <button onclick="window.location.reload();" class="stButton">
+                🔐 Login / Signup
+            </button>
+        </form>
+    </div>
 """, unsafe_allow_html=True)
 
 # Session state for page navigation
@@ -42,6 +56,10 @@ if "current_page" not in st.session_state:
 def navigate(page_name):
     st.session_state.current_page = page_name
     st.experimental_rerun()
+
+# Trigger navigation from top-right button (simulate logic)
+if st.button("🔐", key="auth_topright", help="Login Hidden"):
+    navigate("Auth")
 
 # ========== HOME PAGE ========== #
 if st.session_state.current_page == "Home":
@@ -90,10 +108,7 @@ if st.session_state.current_page == "Home":
             navigate("Opportunity Engine")
         st.markdown('<div class="metric-card">Identify churn risks and upsell opportunities.</div>', unsafe_allow_html=True)
 
-    with col5:
-        if st.button("🔐 Login / Signup", key="nav5"):
-            navigate("Auth")
-        st.markdown('<div class="metric-card">Enterprise-grade authentication module.</div>', unsafe_allow_html=True)
+    # Removed login/signup button from here
 
     st.write("---")
     st.caption("© 2025 Aftermarket AI — All rights reserved.")
