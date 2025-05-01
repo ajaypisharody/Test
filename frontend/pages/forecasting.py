@@ -46,7 +46,7 @@ def render_forecasting():
 
         # Show revenue trends
         st.subheader("📊 Revenue Trends Over Time")
-        rev_trend = merged.groupby(merged['Date'].dt.to_period('M')).sum().reset_index()
+        rev_trend = merged.groupby(merged['Date'].dt.to_period('M'))['Revenue'].sum().reset_index()
         rev_trend['Date'] = rev_trend['Date'].dt.to_timestamp()
 
         fig = px.line(rev_trend, x='Date', y='Revenue', title='Total Revenue Over Time')
