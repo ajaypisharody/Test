@@ -112,7 +112,7 @@ elif st.session_state.current_page == "Parts Demand":
     render_parts_inventory()
 
 elif st.session_state.current_page == "Opportunity Engine":
-    from pages.opportunities import render_opportunities
+    from pages.opportunity_engine import render_opportunities
     render_opportunities()
 
 elif st.session_state.current_page == "Auth":
