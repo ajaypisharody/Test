@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import sys, os
 
 # Path setup
@@ -34,21 +35,36 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Page state
+# Session state for page navigation
 if "current_page" not in st.session_state:
     st.session_state.current_page = "Home"
 
-# Navigation logic
 def navigate(page_name):
     st.session_state.current_page = page_name
     st.experimental_rerun()
 
-# If we're on home
+# ========== HOME PAGE ========== #
 if st.session_state.current_page == "Home":
     st.markdown('<div class="app-header">📊 Aftermarket AI SaaS Dashboard</div>', unsafe_allow_html=True)
-    st.markdown("Welcome to your enterprise analytics suite. Click a module below to get started.")
-    st.write("")
+    st.markdown("Welcome to your enterprise analytics suite. Upload data and click a module to get started.")
 
+    st.markdown("#### 📁 Upload Installed Base CSV")
+    uploaded_file = st.file_uploader("Upload CSV file with columns like `Equipment ID`, `Location`, `Usage Hours`, etc.", type=["csv"])
+
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+        required_cols = {"Equipment ID", "Location", "Usage Hours", "Service History", "Latitude", "Longitude", "ds"}
+
+        if required_cols.issubset(df.columns):
+            st.session_state["installed_base_data"] = df
+            st.success("✅ Data uploaded successfully. All modules can now access this.")
+            st.dataframe(df.head())
+        else:
+            st.error(f"❌ Missing required columns: {required_cols - set(df.columns)}")
+    elif "installed_base_data" not in st.session_state:
+        st.warning("⚠️ Please upload a valid CSV file to proceed with any module.")
+
+    # Modules Grid
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -82,7 +98,7 @@ if st.session_state.current_page == "Home":
     st.write("---")
     st.caption("© 2025 Aftermarket AI — All rights reserved.")
 
-# Page routing
+# ========== PAGE ROUTING ========== #
 elif st.session_state.current_page == "Installed Base":
     from pages.installed_base import render_installed_base
     render_installed_base()
