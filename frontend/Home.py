@@ -6,7 +6,7 @@ import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Streamlit config
-st.set_page_config(page_title="Aftermarket AI | Dashboard", layout="wide")
+st.set_page_config(page_title="Insiful | LYZE", layout="wide")
 
 # Hide default Streamlit menu and footer
 st.markdown("""
@@ -45,7 +45,7 @@ def navigate(page_name):
 
 # ========== HOME PAGE ========== #
 if st.session_state.current_page == "Home":
-    st.markdown('<div class="app-header">📊 Aftermarket AI SaaS Dashboard</div>', unsafe_allow_html=True)
+    st.markdown('<div class="app-header">📊 LYZE - AI Analytics</div>', unsafe_allow_html=True)
     st.markdown("Welcome to your enterprise analytics suite. Upload data and click a module to get started.")
 
     st.markdown("#### 📁 Upload Installed Base CSV")
