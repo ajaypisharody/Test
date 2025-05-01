@@ -2,7 +2,7 @@ import streamlit as st
 import os
 
 def render_sidebar():
-    logo_path = "frontend/assets/images/logo.png"
+    logo_path = "frontend/components/logo.png"
     
     if os.path.exists(logo_path):
         st.sidebar.image(logo_path, use_column_width=True)
