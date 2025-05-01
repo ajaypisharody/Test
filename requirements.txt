@@ -7,4 +7,9 @@ python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
 plotly
-sklearn
+scikit-learn
+prophet
+matplotlib
+numpy
+openpyxl
+xgboost
