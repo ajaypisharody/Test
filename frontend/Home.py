@@ -14,29 +14,56 @@ st.markdown("""
         #MainMenu, footer {visibility: hidden;}
         .block-container { padding-top: 2rem; }
         .app-header {
-            font-size: 30px;
-            font-weight: bold;
+            font-size: 32px;
+            font-weight: 700;
+            color: #2C3E50;
             padding: 1rem 0 2rem 0;
+            text-align: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .metric-card {
-            border: 1px solid #ddd;
-            border-radius: 12px;
+            border: 1px solid #E0E0E0;
+            border-radius: 15px;
             padding: 1.5rem;
             text-align: center;
-            background-color: #f9f9f9;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-            height: 80px;
+            background-color: #FFFFFF;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            height: 100px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: 0.3s ease;
         }
         .metric-card:hover {
-            background-color: #eef6ff;
+            background-color: #F0F8FF;
             cursor: pointer;
-            transition: 0.3s ease-in-out;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
         .top-right-button {
             position: fixed;
-            top: 10px;
+            top: 15px;
             right: 30px;
             z-index: 1000;
+            background-color: #0061F2;
+            color: #FFFFFF;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 600;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .top-right-button:hover {
+            background-color: #0048A5;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+        .top-right-button:focus {
+            outline: none;
+        }
+        .button-container {
+            display: flex;
+            justify-content: flex-end;
+            padding-right: 30px;
         }
     </style>
 
