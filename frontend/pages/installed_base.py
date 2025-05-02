@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import io
 import random
 from lifelines import KaplanMeierFitter
 
 # --- Helper Functions ---
+
 def download_csv(dataframe, filename="installed_base_data.csv"):
     csv = dataframe.to_csv(index=False)
     st.download_button(
@@ -32,6 +32,36 @@ def render_usage_trends(data):
         st.plotly_chart(fig)
     else:
         st.warning("No time-series column (`ds`) found for usage trends.")
+
+def render_revenue_forecast(data):
+    st.subheader("💰 Revenue Forecast (Entitlement-Driven)")
+
+    if "Entitled Usage" not in data.columns:
+        st.warning("Entitlement data not found. Run the Installed Base module first.")
+        return
+
+    avg_revenue_per_hour = st.number_input("Average Aftermarket Revenue per Hour ($)", value=15.0)
+    forecast_years = st.slider("Forecast Horizon (Years)", 1, 5, 3)
+
+    # Assume 250 working days per year * 8 hours = 2000
+    annual_hours = 2000
+    forecast_data = data.copy()
+    forecast_data["Forecasted Annual Usage"] = forecast_data["Entitled Usage"] * forecast_data["Utilization %"] / 100
+    forecast_data["Annual Revenue"] = forecast_data["Forecasted Annual Usage"] * avg_revenue_per_hour
+    forecast_data["Total Forecast Revenue"] = forecast_data["Annual Revenue"] * forecast_years
+
+    st.dataframe(forecast_data[["Equipment ID", "Forecasted Annual Usage", "Annual Revenue", "Total Forecast Revenue"]], use_container_width=True)
+
+    total_revenue = forecast_data["Total Forecast Revenue"].sum()
+    avg_revenue = forecast_data["Annual Revenue"].mean()
+
+    st.metric("Total Forecasted Revenue", f"${total_revenue:,.0f}")
+    st.metric("Average Annual Revenue per Unit", f"${avg_revenue:,.0f}")
+
+    fig_rev = px.bar(forecast_data, x="Equipment ID", y="Total Forecast Revenue",
+                     title="Revenue Forecast per Equipment",
+                     labels={"Total Forecast Revenue": "Revenue ($)"})
+    st.plotly_chart(fig_rev, use_container_width=True)
 
 # --- Main Render Function ---
 def render_installed_base():
@@ -126,12 +156,16 @@ def render_installed_base():
         fig_surv = px.line(survival_df, x="Hours", y="Survival Probability", title="Kaplan-Meier Survival Curve")
         st.plotly_chart(fig_surv, use_container_width=True)
 
-        quantiles = kmf.quantile([0.5, 0.25, 0.75])
-        st.metric("Median Lifecycle (50%)", f"{quantiles[0.5]:.0f} hrs")
-        st.metric("25% Lifecycle", f"{quantiles[0.25]:.0f} hrs")
-        st.metric("75% Lifecycle", f"{quantiles[0.75]:.0f} hrs")
+        # Manually calculate quantiles from survival function
+        median_lifecycle = survival_df[survival_df["Survival Probability"] >= 0.5].iloc[0]["Hours"]
+        q25_lifecycle = survival_df[survival_df["Survival Probability"] >= 0.25].iloc[0]["Hours"]
+        q75_lifecycle = survival_df[survival_df["Survival Probability"] >= 0.75].iloc[0]["Hours"]
 
-        data["Entitled Usage"] = quantiles[0.5]
+        st.metric("Median Lifecycle (50%)", f"{median_lifecycle:.0f} hrs")
+        st.metric("25% Lifecycle", f"{q25_lifecycle:.0f} hrs")
+        st.metric("75% Lifecycle", f"{q75_lifecycle:.0f} hrs")
+
+        data["Entitled Usage"] = median_lifecycle  # Use median lifecycle for entitlement
 
     else:
         entitled_hours = data["Usage Hours"].median() * 1.2
@@ -153,7 +187,8 @@ def render_installed_base():
     st.metric("Overused Units", int(flag_counts.get("Overused", 0)))
     st.metric("Optimal Units", int(flag_counts.get("Optimal", 0)))
 
-    # Sync entitlement data for use in Revenue Forecast module
     st.session_state.entitlement_data = data[["Equipment ID", "Entitled Usage", "Utilization %", "Utilization Flag"]]
+
+    render_revenue_forecast(data)
 
     st.success("✅ Installed Base Module Loaded.")
