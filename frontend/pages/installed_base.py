@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import io
+import random
 
 # --- Helper Functions ---
 def download_csv(dataframe, filename="installed_base_data.csv"):
@@ -120,5 +121,46 @@ def render_installed_base():
     # Time Series Chart (optional)
     st.subheader("📆 Historical Usage Trends")
     render_usage_trends(filtered)
+
+    # ========== ENTITLEMENT CALCULATOR ========== #
+    st.subheader("📐 Entitlement Calculator (Performance Benchmarking)")
+
+    if "Equipment Type" not in data.columns:
+        equipment_types = ["Compressor", "Pump", "Turbine"]
+        environments = ["Normal", "Harsh", "Severe"]
+        duty_cycles = ["Low", "Medium", "High"]
+        data["Equipment Type"] = [random.choice(equipment_types) for _ in range(len(data))]
+        data["Environment"] = [random.choice(environments) for _ in range(len(data))]
+        data["Duty Cycle"] = [random.choice(duty_cycles) for _ in range(len(data))]
+
+    peer_avg = data.groupby("Equipment Type")["Usage Hours"].mean().reset_index()
+    peer_avg.columns = ["Equipment Type", "Peer Avg Usage"]
+    data = data.merge(peer_avg, on="Equipment Type", how="left")
+
+    env_weights = {"Normal": 1.0, "Harsh": 0.85, "Severe": 0.7}
+    duty_weights = {"Low": 0.75, "Medium": 1.0, "High": 1.25}
+
+    data["Env Multiplier"] = data["Environment"].map(env_weights)
+    data["Duty Multiplier"] = data["Duty Cycle"].map(duty_weights)
+
+    data["Entitled Usage"] = data["Peer Avg Usage"] * data["Env Multiplier"] * data["Duty Multiplier"]
+
+    data["Utilization %"] = (data["Usage Hours"] / data["Entitled Usage"]) * 100
+    data["Utilization Flag"] = data["Utilization %"].apply(lambda x: "Overused" if x > 120 else ("Underused" if x < 80 else "Optimal"))
+
+    st.markdown("Compare actual vs entitled usage based on industry factors.")
+
+    st.dataframe(data[["Equipment ID", "Equipment Type", "Usage Hours", "Entitled Usage", 
+                       "Environment", "Duty Cycle", "Utilization %", "Utilization Flag"]], use_container_width=True)
+
+    fig5 = px.bar(data, x="Equipment ID", y=["Usage Hours", "Entitled Usage"],
+                  barmode="group", title="Actual vs Entitled Usage Hours",
+                  labels={"value": "Hours", "variable": "Type"})
+    st.plotly_chart(fig5, use_container_width=True)
+
+    flag_counts = data["Utilization Flag"].value_counts()
+    st.metric("Underused Units", int(flag_counts.get("Underused", 0)))
+    st.metric("Overused Units", int(flag_counts.get("Overused", 0)))
+    st.metric("Optimal Units", int(flag_counts.get("Optimal", 0)))
 
     st.success("✅ Installed Base Module Loaded.")
