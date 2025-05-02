@@ -14,3 +14,4 @@ numpy
 openpyxl
 xgboost
 statsmodels>=0.13.0
+lifelines
