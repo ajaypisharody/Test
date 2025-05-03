@@ -1,69 +1,91 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import random
 from lifelines import KaplanMeierFitter
+from sklearn.ensemble import RandomForestClassifier, IsolationForest
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+import io
+import random
 
 # --- Helper Functions ---
 
 def download_csv(dataframe, filename="installed_base_data.csv"):
     csv = dataframe.to_csv(index=False)
-    st.download_button(
-        label="Download Data as CSV",
-        data=csv,
-        file_name=filename,
-        mime="text/csv",
-    )
+    st.download_button("Download Filtered Data as CSV", data=csv, file_name=filename, mime="text/csv")
 
 def predict_maintenance(data):
-    threshold = 10000
-    data['Needs Maintenance'] = data['Usage Hours'] > threshold
+    data['Needs Maintenance'] = data['Usage Hours'] > 10000
     return data
-
-def to_excel(df):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False)
-    return output.getvalue()
 
 def render_usage_trends(data):
     if "ds" in data.columns and "Usage Hours" in data.columns:
         fig = px.line(data, x="ds", y="Usage Hours", title="Usage Hours Over Time")
         st.plotly_chart(fig)
-    else:
-        st.warning("No time-series column (`ds`) found for usage trends.")
+
+def run_kaplan_meier(data):
+    data["Event"] = data["Service History"].apply(lambda x: 1 if "failure" in str(x).lower() else 0)
+    data["Lifetime"] = data["Usage Hours"]
+    kmf = KaplanMeierFitter()
+    kmf.fit(durations=data["Lifetime"], event_observed=data["Event"])
+    
+    st.markdown("Estimated survival function using Kaplan-Meier method:")
+    survival_df = kmf.survival_function_.reset_index()
+    survival_df.columns = ["Hours", "Survival Probability"]
+    fig = px.line(survival_df, x="Hours", y="Survival Probability", title="Kaplan-Meier Survival Curve")
+    st.plotly_chart(fig)
+
+    median_lifecycle = kmf.median_survival_time_
+    st.metric("Median Lifecycle (50%)", f"{median_lifecycle:.0f} hrs")
+    data["Entitled Usage"] = median_lifecycle
+    return data
+
+def run_ai_models(data):
+    st.subheader("🤖 AI-Powered Insights")
+
+    # Churn Model
+    data["Churn"] = data["Service History"].apply(lambda x: 0 if "none" in str(x).lower() else 1)
+    churn_data = data[["Usage Hours", "Entitled Usage", "Utilization %", "Churn"]].dropna()
+    X = churn_data.drop(columns=["Churn"])
+    y = churn_data["Churn"]
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    model = RandomForestClassifier()
+    model.fit(X_train, y_train)
+    preds = model.predict(X_test)
+
+    st.markdown("**Churn Prediction Accuracy:**")
+    st.code(classification_report(y_test, preds), language='text')
+
+    # Anomaly Detection
+    st.subheader("🚨 Anomaly Detection in Utilization")
+    iso_model = IsolationForest(contamination=0.1)
+    data["Utilization %"] = data["Utilization %"].fillna(0)
+    iso_preds = iso_model.fit_predict(data[["Utilization %"]])
+    data["Anomaly Flag"] = ["Anomaly" if p == -1 else "Normal" for p in iso_preds]
+    
+    fig = px.scatter(data, x="Usage Hours", y="Utilization %", color="Anomaly Flag",
+                     title="Utilization Outliers")
+    st.plotly_chart(fig)
 
 def render_revenue_forecast(data):
     st.subheader("💰 Revenue Forecast (Entitlement-Driven)")
-
     if "Entitled Usage" not in data.columns:
-        st.warning("Entitlement data not found. Run the Installed Base module first.")
+        st.warning("Entitlement data not found.")
         return
 
-    avg_revenue_per_hour = st.number_input("Average Aftermarket Revenue per Hour ($)", value=15.0)
+    avg_revenue = st.number_input("Avg Aftermarket Revenue per Hour ($)", value=15.0)
     forecast_years = st.slider("Forecast Horizon (Years)", 1, 5, 3)
 
-    # Assume 250 working days per year * 8 hours = 2000
-    annual_hours = 2000
-    forecast_data = data.copy()
-    forecast_data["Forecasted Annual Usage"] = forecast_data["Entitled Usage"] * forecast_data["Utilization %"] / 100
-    forecast_data["Annual Revenue"] = forecast_data["Forecasted Annual Usage"] * avg_revenue_per_hour
-    forecast_data["Total Forecast Revenue"] = forecast_data["Annual Revenue"] * forecast_years
+    data["Forecasted Annual Usage"] = data["Entitled Usage"] * data["Utilization %"] / 100
+    data["Annual Revenue"] = data["Forecasted Annual Usage"] * avg_revenue
+    data["Total Forecast Revenue"] = data["Annual Revenue"] * forecast_years
 
-    st.dataframe(forecast_data[["Equipment ID", "Forecasted Annual Usage", "Annual Revenue", "Total Forecast Revenue"]], use_container_width=True)
+    st.metric("Total Forecasted Revenue", f"${data['Total Forecast Revenue'].sum():,.0f}")
+    fig = px.bar(data, x="Equipment ID", y="Total Forecast Revenue", title="Forecast Revenue per Unit")
+    st.plotly_chart(fig)
 
-    total_revenue = forecast_data["Total Forecast Revenue"].sum()
-    avg_revenue = forecast_data["Annual Revenue"].mean()
-
-    st.metric("Total Forecasted Revenue", f"${total_revenue:,.0f}")
-    st.metric("Average Annual Revenue per Unit", f"${avg_revenue:,.0f}")
-
-    fig_rev = px.bar(forecast_data, x="Equipment ID", y="Total Forecast Revenue",
-                     title="Revenue Forecast per Equipment",
-                     labels={"Total Forecast Revenue": "Revenue ($)"})
-    st.plotly_chart(fig_rev, use_container_width=True)
-
-# --- Main Render Function ---
+# --- Main Function ---
 def render_installed_base():
     st.title("📦 Installed Base Intelligence")
 
@@ -76,119 +98,67 @@ def render_installed_base():
         return
 
     data = st.session_state.installed_base_data
-
-    st.markdown("""
-        Gain insights into your equipment base. This module helps visualize, filter, and analyze 
-        your installed base with detailed metrics and interactive visuals.
-    """)
-
-    st.subheader("Raw Data Preview")
     st.dataframe(data.head(), use_container_width=True)
 
-    required_cols = ["Equipment ID", "Location", "Usage Hours", "Service History"]
-    missing = [col for col in required_cols if col not in data.columns]
-    if missing:
-        st.error(f"❌ Missing required columns: {', '.join(missing)}")
+    required = ["Equipment ID", "Location", "Usage Hours", "Service History"]
+    if any(col not in data.columns for col in required):
+        st.error(f"Missing required columns: {', '.join([col for col in required if col not in data.columns])}")
         return
 
     data = predict_maintenance(data)
 
-    st.subheader("🔧 Maintenance Dashboard")
-    maintenance_data = data[data['Needs Maintenance']]
-    if maintenance_data.empty:
-        st.success("✅ All equipment is within usage threshold.")
-    else:
-        st.warning(f"⚠️ {maintenance_data.shape[0]} units require maintenance.")
-        st.dataframe(maintenance_data[["Equipment ID", "Usage Hours", "Location", "Service History"]])
+    with st.expander("📊 Equipment Insights"):
+        tabs = st.tabs(["Usage", "Location", "Service", "Maintenance"])
+        with tabs[0]:
+            st.plotly_chart(px.histogram(data, x="Usage Hours", nbins=20))
+        with tabs[1]:
+            counts = data["Location"].value_counts()
+            st.plotly_chart(px.bar(x=counts.index, y=counts.values, labels={"x": "Location", "y": "Count"}))
+        with tabs[2]:
+            svc_counts = data["Service History"].value_counts()
+            st.plotly_chart(px.pie(values=svc_counts.values, names=svc_counts.index))
+        with tabs[3]:
+            flagged = data[data['Needs Maintenance']]
+            if not flagged.empty:
+                st.warning(f"{flagged.shape[0]} units exceed maintenance threshold.")
+                st.dataframe(flagged[["Equipment ID", "Usage Hours", "Location"]])
+            else:
+                st.success("All units within usage limits.")
 
-    st.subheader("📍 Equipment Distribution by Location")
-    location_counts = data["Location"].value_counts()
-    fig1 = px.bar(location_counts, x=location_counts.index, y=location_counts.values,
-                  labels={'x': 'Location', 'y': 'Count'})
-    st.plotly_chart(fig1, use_container_width=True)
+    with st.expander("📍 Filter & Export"):
+        loc_filter = st.multiselect("Location", data["Location"].unique(), default=data["Location"].unique())
+        svc_filter = st.multiselect("Service History", data["Service History"].unique(), default=data["Service History"].unique())
+        filtered = data[data["Location"].isin(loc_filter) & data["Service History"].isin(svc_filter)]
+        st.dataframe(filtered, use_container_width=True)
+        download_csv(filtered)
 
-    st.subheader("📊 Usage Hours Distribution")
-    fig2 = px.histogram(data, x="Usage Hours", nbins=20)
-    st.plotly_chart(fig2, use_container_width=True)
+    with st.expander("📐 Entitlement Calculator"):
+        method = st.radio("Entitlement Method", ["Kaplan-Meier", "Benchmarking"])
+        if method == "Kaplan-Meier":
+            data = run_kaplan_meier(data)
+        else:
+            median = data["Usage Hours"].median() * 1.2
+            data["Entitled Usage"] = median
+            st.metric("Benchmark Entitlement", f"{median:.0f} hrs")
 
-    st.subheader("🛠️ Service History Breakdown")
-    service_counts = data["Service History"].value_counts()
-    fig3 = px.pie(service_counts, names=service_counts.index, values=service_counts.values)
-    st.plotly_chart(fig3, use_container_width=True)
+        data["Utilization %"] = (data["Usage Hours"] / data["Entitled Usage"]) * 100
+        data["Utilization Flag"] = data["Utilization %"].apply(
+            lambda x: "Overused" if x > 120 else ("Underused" if x < 80 else "Optimal")
+        )
+        st.dataframe(data[["Equipment ID", "Usage Hours", "Entitled Usage", "Utilization %", "Utilization Flag"]])
 
-    st.subheader("🔍 Filter Data")
-    location_filter = st.multiselect("Location", options=data["Location"].unique(), default=data["Location"].unique())
-    service_filter = st.multiselect("Service History", options=data["Service History"].unique(), default=data["Service History"].unique())
-    filtered = data[data["Location"].isin(location_filter) & data["Service History"].isin(service_filter)]
+    with st.expander("📊 Usage vs Entitlement"):
+        st.plotly_chart(
+            px.bar(data, x="Equipment ID", y=["Usage Hours", "Entitled Usage"],
+                   barmode="group", title="Actual vs Entitled Usage")
+        )
 
-    st.write(f"Showing {filtered.shape[0]} records")
-    st.dataframe(filtered, use_container_width=True)
-
-    download_csv(filtered)
-
-    st.subheader("📈 Summary Metrics")
-    st.metric("Total Units", f"{filtered.shape[0]}")
-    st.metric("Avg Usage Hours", f"{filtered['Usage Hours'].mean():,.2f}")
-    st.metric("Top Location", filtered['Location'].value_counts().idxmax())
-    st.metric("Most Common Service History", filtered['Service History'].value_counts().idxmax())
-
-    st.subheader("🔬 Usage by Equipment")
-    usage_by_equipment = filtered.groupby("Equipment ID")["Usage Hours"].sum().reset_index()
-    fig4 = px.bar(usage_by_equipment, x="Equipment ID", y="Usage Hours", title="Usage by Equipment")
-    st.plotly_chart(fig4, use_container_width=True)
-
-    st.subheader("📆 Historical Usage Trends")
-    render_usage_trends(filtered)
-
-    st.subheader("📐 Entitlement Calculator")
-    method = st.radio("Choose Entitlement Calculation Method:", ["Peer Benchmarking", "Kaplan-Meier Survival Analysis"])
-
-    if method == "Kaplan-Meier Survival Analysis":
-        if "Lifetime Hours" not in data.columns:
-            data["Lifetime Hours"] = data["Usage Hours"] + random.randint(1000, 5000)
-            data["Observed"] = 1
-
-        kmf = KaplanMeierFitter()
-        kmf.fit(durations=data["Lifetime Hours"], event_observed=data["Observed"])
-
-        st.markdown("Estimated survival function using Kaplan-Meier method:")
-        survival_df = pd.DataFrame({"Hours": kmf.survival_function_.index, "Survival Probability": kmf.survival_function_["KM_estimate"]})
-        fig_surv = px.line(survival_df, x="Hours", y="Survival Probability", title="Kaplan-Meier Survival Curve")
-        st.plotly_chart(fig_surv, use_container_width=True)
-
-        # Manually calculate quantiles from survival function
-        median_lifecycle = survival_df[survival_df["Survival Probability"] >= 0.5].iloc[0]["Hours"]
-        q25_lifecycle = survival_df[survival_df["Survival Probability"] >= 0.25].iloc[0]["Hours"]
-        q75_lifecycle = survival_df[survival_df["Survival Probability"] >= 0.75].iloc[0]["Hours"]
-
-        st.metric("Median Lifecycle (50%)", f"{median_lifecycle:.0f} hrs")
-        st.metric("25% Lifecycle", f"{q25_lifecycle:.0f} hrs")
-        st.metric("75% Lifecycle", f"{q75_lifecycle:.0f} hrs")
-
-        data["Entitled Usage"] = median_lifecycle  # Use median lifecycle for entitlement
-
-    else:
-        entitled_hours = data["Usage Hours"].median() * 1.2
-        data["Entitled Usage"] = entitled_hours
-        st.metric("Benchmark Entitlement (120% of median)", f"{entitled_hours:.0f} hrs")
-
-    data["Utilization %"] = (data["Usage Hours"] / data["Entitled Usage"]) * 100
-    data["Utilization Flag"] = data["Utilization %"].apply(lambda x: "Overused" if x > 120 else ("Underused" if x < 80 else "Optimal"))
-
-    st.dataframe(data[["Equipment ID", "Usage Hours", "Entitled Usage", "Utilization %", "Utilization Flag"]], use_container_width=True)
-
-    fig5 = px.bar(data, x="Equipment ID", y=["Usage Hours", "Entitled Usage"],
-                  barmode="group", title="Actual vs Entitled Usage",
-                  labels={"value": "Hours", "variable": "Type"})
-    st.plotly_chart(fig5, use_container_width=True)
-
-    flag_counts = data["Utilization Flag"].value_counts()
-    st.metric("Underused Units", int(flag_counts.get("Underused", 0)))
-    st.metric("Overused Units", int(flag_counts.get("Overused", 0)))
-    st.metric("Optimal Units", int(flag_counts.get("Optimal", 0)))
-
-    st.session_state.entitlement_data = data[["Equipment ID", "Entitled Usage", "Utilization %", "Utilization Flag"]]
-
+    run_ai_models(data)
     render_revenue_forecast(data)
 
-    st.success("✅ Installed Base Module Loaded.")
+    st.session_state.entitlement_data = data[["Equipment ID", "Entitled Usage", "Utilization %", "Utilization Flag"]]
+    st.success("✅ Installed Base Analysis Complete.")
+
+# Run only when called explicitly
+if __name__ == "__main__" or "streamlit" in __name__:
+    render_installed_base()
