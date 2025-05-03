@@ -145,10 +145,6 @@ elif st.session_state.current_page == "Revenue Forecast":
     from modules.forecasting import render_forecasting
     render_forecasting()
 
-elif st.session_state.current_page == "Parts Demand":
-    from modules.parts_inventory import render_parts_inventory
-    render_parts_inventory()
-
 elif st.session_state.current_page == "Opportunity Engine":
     from modules.opportunity_engine import render_opportunities
     render_opportunities()
