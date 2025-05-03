@@ -108,21 +108,21 @@ if st.session_state.current_page == "Home":
 
 # ======== PAGE ROUTING ======== #
 elif st.session_state.current_page == "Installed Base":
-    from pages.installed_base import render_installed_base
+    from modules.installed_base import render_installed_base
     render_installed_base()
 
 elif st.session_state.current_page == "Revenue Forecast":
-    from pages.forecasting import render_forecasting
+    from modules.forecasting import render_forecasting
     render_forecasting()
 
 elif st.session_state.current_page == "Parts Demand":
-    from pages.parts_inventory import render_parts_inventory
+    from modules.parts_inventory import render_parts_inventory
     render_parts_inventory()
 
 elif st.session_state.current_page == "Opportunity Engine":
-    from pages.opportunity_engine import render_opportunities
+    from modules.opportunity_engine import render_opportunities
     render_opportunities()
 
 elif st.session_state.current_page == "Auth":
-    from pages.auth import render_auth
+    from modules.auth import render_auth
     render_auth()
