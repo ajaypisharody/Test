@@ -4,110 +4,140 @@ import sys, os
 
 # Path setup
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+st.set_page_config(page_title="LYZE | Aftermarket AI", layout="wide")
 
-# Streamlit config
-st.set_page_config(page_title="Insiful | LYZE", layout="wide")
-
-# ======== CUSTOM COMPONENT IMPORTS ======== #
-from components.topbar import render_topbar
-from components.sidebar import render_sidebar
-
-# ======== HIDE NATIVE NAVIGATION ======== #
+# Hide Streamlit default menu/footer
 st.markdown("""
     <style>
         #MainMenu, footer {visibility: hidden;}
-        header {visibility: hidden;}
-        .block-container { padding-top: 2rem; padding-bottom: 1rem; }
-        .app-header {
-            font-size: 30px;
-            font-weight: 600;
+        .block-container { padding-top: 2rem; padding-bottom: 2rem; }
+        .app-title {
+            font-size: 28px;
+            font-weight: 700;
             color: #1F2937;
-            margin-bottom: 1.5rem;
             font-family: 'Segoe UI', sans-serif;
+            padding-bottom: 0.5rem;
         }
-        .metric-card {
-            background: #F9FAFB;
+        .description {
+            color: #4B5563;
+            font-size: 16px;
+            margin-bottom: 2rem;
+        }
+        .module-card {
+            background-color: #FFFFFF;
             border: 1px solid #E5E7EB;
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            text-align: left;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-            transition: 0.2s ease;
-            font-family: 'Segoe UI', sans-serif;
-            height: 130px;
+            border-radius: 10px;
+            padding: 1.5rem;
+            height: 180px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: 0.3s ease;
         }
-        .metric-card:hover {
-            background-color: #F3F4F6;
+        .module-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background-color: #F9FAFB;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        .module-icon {
+            font-size: 28px;
+            margin-bottom: 0.5rem;
+        }
+        .module-title {
+            font-weight: 600;
+            font-size: 18px;
+            margin-bottom: 0.25rem;
+            color: #111827;
+        }
+        .module-desc {
+            font-size: 14px;
+            color: #6B7280;
+        }
+        .upload-success {
+            color: green;
+            font-weight: 600;
+            margin-top: 10px;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# ======== STATEFUL ROUTING ======== #
+# ==== NAVIGATION ====
 if "current_page" not in st.session_state:
     st.session_state.current_page = "Home"
 
 def navigate(page_name):
     st.session_state.current_page = page_name
-    st.rerun()
 
-# ======== TOP BAR AND SIDEBAR ======== #
-render_topbar()
-render_sidebar(navigate)
+# ==== HEADER ====
+st.markdown('<div class="app-title">📊 LYZE - Aftermarket Intelligence</div>', unsafe_allow_html=True)
+st.markdown('<div class="description">Upload Installed Base data and launch any module to begin analysis.</div>', unsafe_allow_html=True)
 
-# ======== HOME PAGE ======== #
-if st.session_state.current_page == "Home":
-    st.markdown('<div class="app-header">📊 LYZE - AI Analytics</div>', unsafe_allow_html=True)
-    st.write("Welcome to your enterprise analytics suite. Upload data and click a module to get started.")
+# ==== FILE UPLOAD ====
+uploaded_file = st.file_uploader("📁 Upload Installed Base CSV", type=["csv"], label_visibility="collapsed")
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+    required_cols = {"Equipment ID", "Location", "Usage Hours", "Service History", "Latitude", "Longitude", "ds"}
+    if required_cols.issubset(df.columns):
+        st.session_state["installed_base_data"] = df
+        st.markdown('<div class="upload-success">✅ Data uploaded successfully.</div>', unsafe_allow_html=True)
+    else:
+        st.error(f"❌ Missing required columns: {required_cols - set(df.columns)}")
+elif "installed_base_data" not in st.session_state:
+    st.warning("⚠️ Upload a valid Installed Base CSV to proceed with module exploration.")
 
-    # Upload CSV
-    st.markdown("#### 📁 Upload Installed Base CSV")
-    uploaded_file = st.file_uploader("Upload CSV file with columns like `Equipment ID`, `Location`, `Usage Hours`, etc.", type=["csv"])
+st.markdown("###")
 
-    if uploaded_file:
-        df = pd.read_csv(uploaded_file)
-        required_cols = {"Equipment ID", "Location", "Usage Hours", "Service History", "Latitude", "Longitude", "ds"}
+# ==== MODULE GRID ====
+row1_col1, row1_col2 = st.columns(2)
+row2_col1, row2_col2 = st.columns(2)
 
-        if required_cols.issubset(df.columns):
-            st.session_state["installed_base_data"] = df
-            st.success("✅ Data uploaded successfully. All modules can now access this.")
-            st.dataframe(df.head())
-        else:
-            st.error(f"❌ Missing required columns: {required_cols - set(df.columns)}")
-    elif "installed_base_data" not in st.session_state:
-        st.warning("⚠️ Please upload a valid CSV file to proceed with any module.")
+with row1_col1:
+    if st.button("📦 Installed Base", use_container_width=True):
+        navigate("Installed Base")
+    st.markdown("""
+        <div class="module-card">
+            <div class="module-icon">📦</div>
+            <div class="module-title">Installed Base</div>
+            <div class="module-desc">Map your equipment footprint and visualize usage, age, and location.</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # ===== MODULE BUTTONS LAYOUT ===== #
-    st.markdown("### 🔍 Explore Modules")
+with row1_col2:
+    if st.button("📈 Revenue Forecast", use_container_width=True):
+        navigate("Revenue Forecast")
+    st.markdown("""
+        <div class="module-card">
+            <div class="module-icon">📈</div>
+            <div class="module-title">Revenue Forecast</div>
+            <div class="module-desc">Time series predictions for aftermarket revenue planning.</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("📦 Installed Base"):
-            navigate("Installed Base")
-        st.markdown('<div class="metric-card">View equipment footprint and service data.</div>', unsafe_allow_html=True)
+with row2_col1:
+    if st.button("⚙️ Parts Demand", use_container_width=True):
+        navigate("Parts Demand")
+    st.markdown("""
+        <div class="module-card">
+            <div class="module-icon">⚙️</div>
+            <div class="module-title">Parts Demand</div>
+            <div class="module-desc">Forecast part usage and optimize service part inventory.</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    with col2:
-        if st.button("📈 Revenue Forecast"):
-            navigate("Revenue Forecast")
-        st.markdown('<div class="metric-card">Time series forecast for revenue planning.</div>', unsafe_allow_html=True)
+with row2_col2:
+    if st.button("💰 Opportunity Engine", use_container_width=True):
+        navigate("Opportunity Engine")
+    st.markdown("""
+        <div class="module-card">
+            <div class="module-icon">💰</div>
+            <div class="module-title">Opportunity Engine</div>
+            <div class="module-desc">Discover upsell, cross-sell, and retention opportunities.</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    with col3:
-        if st.button("⚙️ Parts Demand"):
-            navigate("Parts Demand")
-        st.markdown('<div class="metric-card">Predict part consumption based on installed base.</div>', unsafe_allow_html=True)
+st.write("---")
+st.caption("© 2025 Aftermarket AI — All rights reserved.")
 
-    col4, col5, _ = st.columns([1, 1, 1])
-    with col4:
-        if st.button("💰 Opportunity Engine"):
-            navigate("Opportunity Engine")
-        st.markdown('<div class="metric-card">Identify upsell, cross-sell, and churn risks.</div>', unsafe_allow_html=True)
-
-    st.write("---")
-    st.caption("© 2025 Aftermarket AI — All rights reserved.")
-
-# ======== PAGE ROUTING ======== #
-elif st.session_state.current_page == "Installed Base":
+# ==== PAGE ROUTING ====
+if st.session_state.current_page == "Installed Base":
     from modules.installed_base import render_installed_base
     render_installed_base()
 
