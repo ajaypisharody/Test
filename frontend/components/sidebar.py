@@ -2,7 +2,7 @@ import streamlit as st
 
 def render_sidebar(navigate):
     with st.sidebar:
-        st.image("frontend/logo.png", use_column_width=True)
+        st.image("frontend/logo.png", use_container_width=True)
         st.markdown("---")
         st.markdown("**LYZE AI Analytics Suite**")
         
