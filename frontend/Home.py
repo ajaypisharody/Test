@@ -58,7 +58,7 @@ if "current_page" not in st.session_state:
 
 def navigate(page_name):
     st.session_state.current_page = page_name
-    st.experimental_rerun()
+    st.rerun()
 
 # Render
 render_topbar()
