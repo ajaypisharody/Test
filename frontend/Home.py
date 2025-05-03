@@ -3,134 +3,143 @@ import pandas as pd
 import sys, os
 
 # Path setup
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# Streamlit config
+st.set_page_config(page_title="LYZE | Analytics", layout="wide")
+
+# Component Imports
 from components.sidebar import render_sidebar
 from components.topbar import render_topbar
 
-st.set_page_config(page_title="LYZE Analytics", layout="wide")
-
-# Hide Streamlit UI elements
-st.markdown("""
-    <style>
-        #MainMenu, footer {visibility: hidden;}
-        .block-container { padding: 1rem 2rem; }
-        .app-header {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            font-family: 'Segoe UI', sans-serif;
-        }
-        .tile-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            margin-top: 2rem;
-        }
-        .tile {
-            background: #F9FAFB;
-            border: 1px solid #E5E7EB;
-            border-radius: 12px;
-            padding: 1.5rem;
-            transition: 0.2s ease;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        }
-        .tile:hover {
-            background-color: #F3F4F6;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            cursor: pointer;
-        }
-        .tile-title {
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #1F2937;
-        }
-        .tile-desc {
-            font-size: 14px;
-            color: #4B5563;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
+# State Setup
 if "current_page" not in st.session_state:
     st.session_state.current_page = "Home"
 
 def navigate(page_name):
     st.session_state.current_page = page_name
-    st.rerun()
 
-# Render
+# ===== Styling =====
+st.markdown("""
+    <style>
+        #MainMenu, footer {visibility: hidden;}
+        .app-header {
+            font-size: 28px;
+            font-weight: 600;
+            color: #1F2937;
+            margin-bottom: 1rem;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+            margin-top: 1rem;
+        }
+        .card {
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            transition: all 0.2s ease;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .card:hover {
+            background-color: #F3F4F6;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            cursor: pointer;
+        }
+        .card-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #111827;
+        }
+        .card-desc {
+            font-size: 14px;
+            color: #6B7280;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# ===== Layout =====
 render_topbar()
 render_sidebar(navigate)
 
 if st.session_state.current_page == "Home":
-    st.markdown('<div class="app-header">📊 LYZE - AI Analytics</div>', unsafe_allow_html=True)
-    st.write("Welcome to your enterprise analytics suite. Upload data and click a module to get started.")
 
-    st.subheader("📁 Upload Installed Base CSV")
-    uploaded_file = st.file_uploader("Upload CSV with columns like `Equipment ID`, `Location`, `Usage Hours`, etc.", type=["csv"])
+    st.markdown('<div class="app-header">LYZE - AI Analytics</div>', unsafe_allow_html=True)
+    st.write("Upload Installed Base data to begin.")
+
+    uploaded_file = st.file_uploader("Upload Installed Base CSV", type=["csv"])
 
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
         required = {"Equipment ID", "Location", "Usage Hours", "Service History", "Latitude", "Longitude", "ds"}
         if required.issubset(df.columns):
             st.session_state["installed_base_data"] = df
-            st.success("✅ Data uploaded. All modules can now access it.")
+            st.success("✅ File uploaded successfully.")
             st.dataframe(df.head())
         else:
             st.error(f"❌ Missing required columns: {required - set(df.columns)}")
     elif "installed_base_data" not in st.session_state:
-        st.warning("⚠️ Please upload a valid CSV to proceed.")
+        st.warning("⚠️ Please upload a valid CSV file to use the modules.")
 
-    # ==== Modules Grid ====
-    st.markdown('<div class="tile-grid">', unsafe_allow_html=True)
+    # ===== Cards =====
+    st.markdown('<div class="card-grid">', unsafe_allow_html=True)
 
+    # Installed Base
     st.markdown(f"""
-        <div class="tile" onclick="window.location.href='#{navigate('Installed Base')}';">
-            <div class="tile-title">📦 Installed Base</div>
-            <div class="tile-desc">View equipment footprint and service data.</div>
+        <div class="card" onclick="window.location.href='#{navigate("Installed Base")}'">
+            <div class="card-title">📦 Installed Base</div>
+            <div class="card-desc">View equipment footprint and service data.</div>
         </div>
     """, unsafe_allow_html=True)
 
+    # Revenue Forecast
     st.markdown(f"""
-        <div class="tile" onclick="window.location.href='#{navigate('Revenue Forecast')}';">
-            <div class="tile-title">📈 Revenue Forecast</div>
-            <div class="tile-desc">Time series forecast for revenue planning.</div>
+        <div class="card" onclick="window.location.href='#{navigate("Revenue Forecast")}'">
+            <div class="card-title">📈 Revenue Forecast</div>
+            <div class="card-desc">Time series forecast for revenue planning.</div>
         </div>
     """, unsafe_allow_html=True)
 
+    # Parts Demand
     st.markdown(f"""
-        <div class="tile" onclick="window.location.href='#{navigate('Parts Demand')}';">
-            <div class="tile-title">⚙️ Parts Demand</div>
-            <div class="tile-desc">Predict service part consumption intelligently.</div>
+        <div class="card" onclick="window.location.href='#{navigate("Parts Demand")}'">
+            <div class="card-title">⚙️ Parts Demand</div>
+            <div class="card-desc">Predict part consumption based on installed base.</div>
         </div>
     """, unsafe_allow_html=True)
 
+    # Opportunity Engine
     st.markdown(f"""
-        <div class="tile" onclick="window.location.href='#{navigate('Opportunity Engine')}';">
-            <div class="tile-title">💰 Opportunity Engine</div>
-            <div class="tile-desc">Identify churn risks and upsell opportunities.</div>
+        <div class="card" onclick="window.location.href='#{navigate("Opportunity Engine")}'">
+            <div class="card-title">💰 Opportunity Engine</div>
+            <div class="card-desc">Identify upsell, cross-sell and churn risk signals.</div>
         </div>
     """, unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
+
     st.write("---")
     st.caption("© 2025 Aftermarket AI — All rights reserved.")
 
-# Page Routing
+# ========== Page Routing (manual) ==========
 elif st.session_state.current_page == "Installed Base":
-    from modules.installed_base import render_installed_base
+    from pages.installed_base import render_installed_base
     render_installed_base()
 
 elif st.session_state.current_page == "Revenue Forecast":
-    from modules.forecasting import render_forecasting
+    from pages.forecasting import render_forecasting
     render_forecasting()
 
 elif st.session_state.current_page == "Parts Demand":
-    from modules.parts_inventory import render_parts_inventory
+    from pages.parts_inventory import render_parts_inventory
     render_parts_inventory()
 
 elif st.session_state.current_page == "Opportunity Engine":
-    from modules.opportunity_engine import render_opportunities
+    from pages.opportunity_engine import render_opportunities
     render_opportunities()
