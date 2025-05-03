@@ -13,7 +13,7 @@ def render_forecasting():
     # Navigation
     if st.button("🔙 Back to Home"):
         st.session_state.current_page = "Home"
-        st.experimental_rerun()
+        st.rerun()
 
     # Load Installed Base data from session
     installed_base = st.session_state.get("installed_base_data", None)
