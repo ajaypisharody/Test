@@ -28,7 +28,7 @@ def run_kaplan_meier(data):
     data["Lifetime"] = data["Usage Hours"]
     kmf = KaplanMeierFitter()
     kmf.fit(durations=data["Lifetime"], event_observed=data["Event"])
-    
+
     st.markdown("Estimated survival function using Kaplan-Meier method:")
     survival_df = kmf.survival_function_.reset_index()
     survival_df.columns = ["Hours", "Survival Probability"]
@@ -41,32 +41,42 @@ def run_kaplan_meier(data):
     return data
 
 def run_ai_models(data):
-    st.subheader("🤖 AI-Powered Insights")
+    with st.expander("🤖 AI-Powered Insights"):
+        st.markdown("This section uses machine learning to identify potential churn risks and usage anomalies across your installed base.")
 
-    # Churn Model
-    data["Churn"] = data["Service History"].apply(lambda x: 0 if "none" in str(x).lower() else 1)
-    churn_data = data[["Usage Hours", "Entitled Usage", "Utilization %", "Churn"]].dropna()
-    X = churn_data.drop(columns=["Churn"])
-    y = churn_data["Churn"]
-    
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-    model = RandomForestClassifier()
-    model.fit(X_train, y_train)
-    preds = model.predict(X_test)
+        # --- Churn Model ---
+        st.subheader("📉 Churn Prediction")
+        st.markdown(
+            "Churn prediction uses a Random Forest classifier to determine whether a machine is likely to churn based on "
+            "`Usage Hours`, `Entitled Usage`, and `Utilization %`. Churn is defined here based on whether there has been any service recorded."
+        )
 
-    st.markdown("**Churn Prediction Accuracy:**")
-    st.code(classification_report(y_test, preds), language='text')
+        data["Churn"] = data["Service History"].apply(lambda x: 0 if "none" in str(x).lower() else 1)
+        churn_data = data[["Usage Hours", "Entitled Usage", "Utilization %", "Churn"]].dropna()
+        X = churn_data.drop(columns=["Churn"])
+        y = churn_data["Churn"]
 
-    # Anomaly Detection
-    st.subheader("🚨 Anomaly Detection in Utilization")
-    iso_model = IsolationForest(contamination=0.1)
-    data["Utilization %"] = data["Utilization %"].fillna(0)
-    iso_preds = iso_model.fit_predict(data[["Utilization %"]])
-    data["Anomaly Flag"] = ["Anomaly" if p == -1 else "Normal" for p in iso_preds]
-    
-    fig = px.scatter(data, x="Usage Hours", y="Utilization %", color="Anomaly Flag",
-                     title="Utilization Outliers")
-    st.plotly_chart(fig)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+        model = RandomForestClassifier()
+        model.fit(X_train, y_train)
+        preds = model.predict(X_test)
+
+        st.markdown("**Model Evaluation Report:**")
+        st.code(classification_report(y_test, preds), language='text')
+
+    with st.expander("🚨 Anomaly Detection in Utilization"):
+        st.markdown(
+            "This module uses an **Isolation Forest** model to detect anomalies in equipment utilization patterns. "
+            "Anomalies are usage behaviors that deviate significantly from the norm."
+        )
+        iso_model = IsolationForest(contamination=0.1)
+        data["Utilization %"] = data["Utilization %"].fillna(0)
+        iso_preds = iso_model.fit_predict(data[["Utilization %"]])
+        data["Anomaly Flag"] = ["Anomaly" if p == -1 else "Normal" for p in iso_preds]
+
+        fig = px.scatter(data, x="Usage Hours", y="Utilization %", color="Anomaly Flag",
+                         title="Utilization Outliers")
+        st.plotly_chart(fig)
 
 def render_revenue_forecast(data):
     st.subheader("💰 Revenue Forecast (Entitlement-Driven)")
