@@ -7,7 +7,7 @@ def render_sidebar():
         st.markdown("---")
 
         st.subheader("🔍 Navigation")
-        st.page_link("home.py", label="🏠 Dashboard Home")
+        st.page_link("Home.py", label="🏠 Dashboard Home")
         st.page_link("pages/installed_base.py", label="📦 Installed Base")
         st.page_link("pages/forecasting.py", label="📈 Revenue Forecast")
         st.page_link("pages/parts_inventory.py", label="⚙️ Parts Demand")
