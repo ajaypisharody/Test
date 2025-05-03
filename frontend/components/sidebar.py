@@ -1,16 +1,18 @@
 import streamlit as st
 
-def render_sidebar():
+def render_sidebar(navigate):
     with st.sidebar:
-        st.markdown("### 🏢 LYZE AI Platform")
-        st.markdown("Welcome to your aftermarket intelligence suite.")
+        st.image("assets/logo.png", use_column_width=True)
         st.markdown("---")
-
-        st.subheader("🔍 Navigation")
-        st.page_link("Home.py", label="🏠 Dashboard Home")
-        st.page_link("pages/installed_base.py", label="📦 Installed Base")
-        st.page_link("pages/forecasting.py", label="📈 Revenue Forecast")
-        st.page_link("pages/opportunity_engine.py", label="💰 Opportunity Engine")
-
-        st.markdown("---")
-        st.caption("© 2025 Aftermarket AI — All rights reserved.")
+        st.markdown("**LYZE AI Analytics Suite**")
+        
+        if st.button("🏠 Home"):
+            navigate("Home")
+        if st.button("📦 Installed Base"):
+            navigate("Installed Base")
+        if st.button("📈 Revenue Forecast"):
+            navigate("Revenue Forecast")
+        if st.button("⚙️ Parts Demand"):
+            navigate("Parts Demand")
+        if st.button("💰 Opportunity Engine"):
+            navigate("Opportunity Engine")
