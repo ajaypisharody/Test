@@ -69,7 +69,7 @@ def render_installed_base():
 
     if st.button("🔙 Back to Home"):
         st.session_state.current_page = "Home"
-        st.experimental_rerun()
+        st.rerun()
 
     if "installed_base_data" not in st.session_state:
         st.error("❌ No data uploaded. Please return to Home and upload Installed Base data.")
