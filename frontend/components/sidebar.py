@@ -1,20 +1,17 @@
 import streamlit as st
-import os
 
 def render_sidebar():
-    logo_path = "frontend/components/logo.png"
-    
-    if os.path.exists(logo_path):
-        st.sidebar.image(logo_path, use_column_width=True)
-    else:
-        st.sidebar.markdown("### Aftermarket AI")
+    with st.sidebar:
+        st.markdown("### 🏢 LYZE AI Platform")
+        st.markdown("Welcome to your aftermarket intelligence suite.")
+        st.markdown("---")
 
-    st.sidebar.title("Navigation")
-    return st.sidebar.radio("Go to", [
-        "🏠 Home",
-        "📦 Installed Base",
-        "📈 Revenue Forecast",
-        "💰 Opportunity Engine",
-        "⚙️ Parts Demand",
-        "🔐 Login/Signup"
-    ])
+        st.subheader("🔍 Navigation")
+        st.page_link("home.py", label="🏠 Dashboard Home")
+        st.page_link("pages/installed_base.py", label="📦 Installed Base")
+        st.page_link("pages/forecasting.py", label="📈 Revenue Forecast")
+        st.page_link("pages/parts_inventory.py", label="⚙️ Parts Demand")
+        st.page_link("pages/opportunity_engine.py", label="💰 Opportunity Engine")
+
+        st.markdown("---")
+        st.caption("© 2025 Aftermarket AI — All rights reserved.")
