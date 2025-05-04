@@ -119,7 +119,7 @@ def render_installed_base():
         st.plotly_chart(px.histogram(data, x="Usage Hours"))
         st.plotly_chart(px.pie(data, names="Service History", title="Service Distribution"))
         st.plotly_chart(px.bar(data["Location"].value_counts().reset_index(),
-                               x="index", y="Location", title="Units per Location"))
+                               x="data.index", y="Location", title="Units per Location"))
 
     # Entitlement Estimation
     with st.expander("📐 Entitlement"):
