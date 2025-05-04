@@ -5,8 +5,7 @@ from lifelines import KaplanMeierFitter
 from sklearn.ensemble import RandomForestClassifier, IsolationForest
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-import io
-import random
+from scipy import stats
 
 # --- Helper Functions ---
 
@@ -15,13 +14,9 @@ def download_csv(dataframe, filename="installed_base_data.csv"):
     st.download_button("Download Filtered Data as CSV", data=csv, file_name=filename, mime="text/csv")
 
 def predict_maintenance(data):
-    data['Needs Maintenance'] = data['Usage Hours'] > 10000
+    threshold = data["Usage Hours"].quantile(0.90)
+    data['Needs Maintenance'] = data['Usage Hours'] > threshold
     return data
-
-def render_usage_trends(data):
-    if "ds" in data.columns and "Usage Hours" in data.columns:
-        fig = px.line(data, x="ds", y="Usage Hours", title="Usage Hours Over Time")
-        st.plotly_chart(fig)
 
 def run_kaplan_meier(data):
     data["Event"] = data["Service History"].apply(lambda x: 1 if "failure" in str(x).lower() else 0)
@@ -44,18 +39,14 @@ def run_ai_models(data):
     with st.expander("🤖 AI-Powered Insights"):
         st.markdown("This section uses machine learning to identify potential churn risks and usage anomalies across your installed base.")
 
-        # --- Churn Model ---
+        # Churn Prediction
         st.subheader("📉 Churn Prediction")
-        st.markdown(
-            "Churn prediction uses a Random Forest classifier to determine whether a machine is likely to churn based on "
-            "`Usage Hours`, `Entitled Usage`, and `Utilization %`. Churn is defined here based on whether there has been any service recorded."
-        )
-
         data["Churn"] = data["Service History"].apply(lambda x: 0 if "none" in str(x).lower() else 1)
-        churn_data = data[["Usage Hours", "Entitled Usage", "Utilization %", "Churn"]].dropna()
+        feature_cols = ["Usage Hours", "Entitled Usage", "Utilization %"] + \
+                       [col for col in data.columns if col.startswith("Temp") or col.startswith("Flow") or col in ["Pressure", "Speed"]]
+        churn_data = data[feature_cols + ["Churn"]].dropna()
         X = churn_data.drop(columns=["Churn"])
         y = churn_data["Churn"]
-
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
         model = RandomForestClassifier()
         model.fit(X_train, y_train)
@@ -65,17 +56,13 @@ def run_ai_models(data):
         st.code(classification_report(y_test, preds), language='text')
 
     with st.expander("🚨 Anomaly Detection in Utilization"):
-        st.markdown(
-            "This module uses an **Isolation Forest** model to detect anomalies in equipment utilization patterns. "
-            "Anomalies are usage behaviors that deviate significantly from the norm."
-        )
+        st.markdown("Isolation Forest detects unusual utilization patterns.")
         iso_model = IsolationForest(contamination=0.1)
         data["Utilization %"] = data["Utilization %"].fillna(0)
         iso_preds = iso_model.fit_predict(data[["Utilization %"]])
         data["Anomaly Flag"] = ["Anomaly" if p == -1 else "Normal" for p in iso_preds]
 
-        fig = px.scatter(data, x="Usage Hours", y="Utilization %", color="Anomaly Flag",
-                         title="Utilization Outliers")
+        fig = px.scatter(data, x="Usage Hours", y="Utilization %", color="Anomaly Flag", title="Utilization Outliers")
         st.plotly_chart(fig)
 
 def render_revenue_forecast(data):
@@ -143,24 +130,26 @@ def render_installed_base():
         download_csv(filtered)
 
     with st.expander("📐 Entitlement Calculator"):
-        method = st.radio("Entitlement Method", ["Kaplan-Meier", "Benchmarking"])
+        method = st.radio("Entitlement Method", ["Kaplan-Meier", "Statistical Benchmark"])
         if method == "Kaplan-Meier":
             data = run_kaplan_meier(data)
         else:
-            median = data["Usage Hours"].median() * 1.2
-            data["Entitled Usage"] = median
-            st.metric("Benchmark Entitlement", f"{median:.0f} hrs")
+            benchmark = stats.trim_mean(data["Usage Hours"].dropna(), 0.1) * 1.1
+            data["Entitled Usage"] = benchmark
+            st.metric("Statistical Benchmark Entitlement", f"{benchmark:.0f} hrs")
 
         data["Utilization %"] = (data["Usage Hours"] / data["Entitled Usage"]) * 100
-        data["Utilization Flag"] = data["Utilization %"].apply(
-            lambda x: "Overused" if x > 120 else ("Underused" if x < 80 else "Optimal")
-        )
+        z_scores = stats.zscore(data["Utilization %"].fillna(0))
+        data["Utilization Flag"] = [
+            "Underused" if z < -1 else "Overused" if z > 1 else "Optimal"
+            for z in z_scores
+        ]
+
         st.dataframe(data[["Equipment ID", "Usage Hours", "Entitled Usage", "Utilization %", "Utilization Flag"]])
 
     with st.expander("📊 Usage vs Entitlement"):
         st.plotly_chart(
-            px.bar(data, x="Equipment ID", y=["Usage Hours", "Entitled Usage"],
-                   barmode="group", title="Actual vs Entitled Usage")
+            px.bar(data, x="Equipment ID", y=["Usage Hours", "Entitled Usage"], barmode="group", title="Actual vs Entitled Usage")
         )
 
     run_ai_models(data)
