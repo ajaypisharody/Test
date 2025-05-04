@@ -76,7 +76,7 @@ if uploaded_file:
     df = pd.read_csv(uploaded_file)
 
     # Define flexible core required columns for multi-industry use
-    required_core = {"Equipment ID", "Location", "Usage Hours", "Service History", "Latitude", "Longitude", "ds"}
+    required_core = {"Equipment ID", "Location", "Usage Hours", "Service History"}#, "Latitude", "Longitude", "ds"}
     expected_technical = {"Temperature", "Pressure", "Flow Rate", "RPM", "Voltage", "Current"}
     expected_categorical = {"Product Brand", "Application", "Market", "Product Code", "Equipment Type", "Industry"}
 
