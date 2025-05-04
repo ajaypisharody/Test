@@ -70,18 +70,32 @@ def navigate(page_name):
 st.markdown('<div class="app-title">📊 LYZE - Aftermarket Intelligence</div>', unsafe_allow_html=True)
 st.markdown('<div class="description">Upload Installed Base data and launch any module to begin analysis.</div>', unsafe_allow_html=True)
 
-# ==== FILE UPLOAD ====
+# ==== FILE UPLOAD (Updated for Multi-Industry Support) ====
 uploaded_file = st.file_uploader("📁 Upload Installed Base CSV", type=["csv"], label_visibility="collapsed")
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
-    required_cols = {"Equipment ID", "Location", "Usage Hours", "Service History", "Latitude", "Longitude", "ds"}
-    if required_cols.issubset(df.columns):
+
+    # Define flexible core required columns for multi-industry use
+    required_core = {"Equipment ID", "Location", "Usage Hours", "Service History", "Latitude", "Longitude", "ds"}
+    expected_technical = {"Temperature", "Pressure", "Flow Rate", "RPM", "Voltage", "Current"}
+    expected_categorical = {"Product Brand", "Application", "Market", "Product Code", "Equipment Type", "Industry"}
+
+    all_expected = required_core.union(expected_technical).union(expected_categorical)
+    missing = all_expected - set(df.columns)
+
+    if required_core.issubset(df.columns):
         st.session_state["installed_base_data"] = df
         st.markdown('<div class="upload-success">✅ Data uploaded successfully.</div>', unsafe_allow_html=True)
+        if missing:
+            st.warning(f"⚠️ Some optional fields missing: {', '.join(missing)}. Analysis may be limited.")
     else:
-        st.error(f"❌ Missing required columns: {required_cols - set(df.columns)}")
+        st.error(f"❌ Missing required core columns: {required_core - set(df.columns)}")
 elif "installed_base_data" not in st.session_state:
     st.warning("⚠️ Upload a valid Installed Base CSV to proceed with module exploration.")
+
+
+
+
 
 st.markdown("###")
 
