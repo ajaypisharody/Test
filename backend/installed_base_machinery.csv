@@ -1,0 +1,6 @@
+Equipment ID,Location,Latitude,Longitude,Usage Hours,Service History,Temperature,Pressure,Flow Rate,Vibration Level,Product Brand,Market Segment,Application Type,Product Code,Installation Date,ds
+MACH-001,India,84.52,146.97,6306,None,81.9,147.75,310.06,0.016,BrandY,Construction,Drilling,PX300,2018-01-01,2024-01-01
+MACH-002,Brazil,49.52,-93.75,4970,None,70.98,145.58,229.6,0.021,BrandX,Mining,Lifting,PX100,2018-01-31,2024-01-02
+MACH-003,USA,79.11,-127.84,7106,Failure,77.24,162.28,148.09,0.019,BrandY,Construction,Transport,PX100,2018-03-02,2024-01-03
+MACH-004,India,71.07,-3.8,9712,Failure,75.13,165.15,199.6,0.028,BrandY,Construction,Lifting,PX100,2018-04-01,2024-01-04
+MACH-005,India,17.62,174.83,8428,Failure,75.98,139.39,156.46,0.007,BrandX,Mining,Transport,PX300,2018-05-01,2024-01-05
